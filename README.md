@@ -59,26 +59,64 @@ Get your Together AI API key from: https://api.together.xyz/
 ```bash
 python api_server.py
 ```
+
+**Test the system with these curl commands:**
+
+1. Generate system data model and diagram:
+```bash
+curl --location 'http://localhost:8000/v2/generate/:session_id' \
+--header 'Content-Type: application/json' \
+--data '{
+    "prompt": "E-commerce system with users, products, cart, checkout",
+    "diagram_types": ["sequence"]
+}'
+```
+
+2. Switch to a different view without any LLM calls using the previously generated system model:
+```bash
+curl --location 'http://localhost:8000/v2/switch-view/:session_id' \
+--header 'Content-Type: application/json' \
+--data '{
+    "diagram_type": "class"
+}'
+```
+
 ---
 
 ## 📖 Overview
 
-This UML Diagram Generator leverages AI to transform natural language descriptions into professional UML diagrams. It uses:
+This UML Diagram Generator leverages AI to transform natural language descriptions into professional UML diagrams. It uses a **canonical model-based architecture** inspired by Notion's database-view approach:
 
-- **Together AI** (Kimi-K2-Instruct model) for intelligent diagram generation
+> **Extract Once, Render Many Views** - One LLM call creates a comprehensive system model, then templates instantly generate any diagram type.
+
+**Technologies:**
+- **Together AI** (Kimi-K2-Instruct model) for intelligent model extraction
 - **PlantUML** for rendering high-quality diagram images
-- **Redis** for session-based conversation memory
+- **Redis** for persistent model storage
+- **Jinja2 Templates** for diagram rendering
 - **FastAPI** for a RESTful API interface
 
 ### Key Features
 
 ✅ **14 UML Diagram Types** - Supports all standard UML diagrams  
 ✅ **Natural Language Input** - Describe your system in plain English  
+✅ **Canonical Model Architecture** - One model, infinite diagram views  
+✅ **Instant View Switching** - Change diagram types with ZERO LLM calls  
 ✅ **Session Memory** - Maintains context across multiple requests  
-✅ **Iterative Editing** - Refine diagrams with follow-up instructions  
-✅ **REST API** - Easy integration with other tools  
-✅ **Batch Generation** - Generate multiple diagram types at once  
+✅ **Consistent Data** - All diagrams share the same underlying model  
+✅ **Cost Efficient** - Lower token usage, faster rendering  
+✅ **Template-Based** - Easy to customize and extend  
 ✅ **Auto-Save Images** - PNG images saved automatically
+
+### Architecture
+
+```
+User Prompt → LLM → Canonical System Model → Templates → PlantUML Diagrams
+                          ↓
+                    Redis Storage
+```
+
+For detailed architecture information, see [ARCHITECTURE.md](ARCHITECTURE.md)
 
 ---
 
@@ -114,20 +152,20 @@ This UML Diagram Generator leverages AI to transform natural language descriptio
 
 ## 💻 Usage
 
-### Python Library Usage
+### Python Library Usage (Recommended: Model-Based Approach)
 
 ```python
-from uml_generator.uml_generator import UMLDiagramGenerator
-from uml_generator.models.request_model import DiagramRequest, DiagramType
+from uml_generator.model_based_generator import ModelBasedGenerator
+from uml_generator.models.diagram_type import DiagramType
 from dotenv import load_dotenv
 
 load_dotenv()
 
 # Initialize generator
-generator = UMLDiagramGenerator()
+generator = ModelBasedGenerator()
 
-# Create request
-request = DiagramRequest(
+# Generate diagrams (ONE LLM call extracts canonical model)
+responses, model, tokens = generator.generate_diagrams(
     prompt="""
     Design an e-commerce system with:
     - User authentication and authorization
@@ -140,21 +178,55 @@ request = DiagramRequest(
         DiagramType.CLASS,
         DiagramType.SEQUENCE,
         DiagramType.COMPONENT
-    ]
-)
-
-# Generate diagrams
-responses = generator.generate_diagrams(
-    request=request,
-    session_id="user_123",
-    save_images=True
+    ],
+    session_id="user_123"
 )
 
 # View results
+print(f"✓ Canonical model generated with {len(model.components)} components")
+print(f"  Total tokens used: {tokens['total_tokens']}")
+
 for response in responses:
-    print(f"✓ {response.diagram_type.value} diagram generated")
+    print(f"\n✓ {response.diagram_type.value} diagram rendered")
     print(f"  Image: {response.image_path}")
-    print(f"  Tokens: {response.token_usage['total_tokens']}")
+    print(f"  Template rendering tokens: {response.token_usage['total_tokens']}")  # Always 0!
+```
+
+### Switch Diagram Views (ZERO LLM Calls!)
+
+```python
+# Later, switch to a different diagram type - NO LLM call needed!
+state_diagram = generator.switch_diagram_view(
+    session_id="user_123",
+    new_diagram_type=DiagramType.STATE_MACHINE
+)
+
+print(f"✓ State diagram rendered instantly")
+print(f"  Tokens used: {state_diagram.token_usage['total_tokens']}")  # 0!
+```
+
+### Legacy Approach (Still Supported)
+
+<details>
+<summary>Click to expand legacy UMLDiagramGenerator usage</summary>
+
+```python
+from uml_generator.uml_generator import UMLDiagramGenerator
+from uml_generator.models.request_model import DiagramRequest, DiagramType
+
+generator = UMLDiagramGenerator()
+
+request = DiagramRequest(
+    prompt="Design an e-commerce system...",
+    diagram_types=[DiagramType.CLASS, DiagramType.SEQUENCE]
+)
+
+responses = generator.generate_diagrams(request, session_id="user_123")
+# Note: This makes ONE LLM call PER diagram type (less efficient)
+```
+
+⚠️ **Note:** The legacy generator makes one LLM call per diagram type. For better efficiency and consistency, use `ModelBasedGenerator` instead.
+</details>
 ```
 
 ### Iterative Editing
@@ -255,14 +327,54 @@ DELETE /session-history/{session_id}
 GET /diagram/{filename}
 ```
 
-#### 6. Health Check
+#### 6. Submit Feedback (for RL Training)
+
+```bash
+POST /feedback
+```
+
+**Request:**
+```json
+{
+  "session_id": "user_123",
+  "diagram_index": 0,
+  "feedback": "thumbs_up",
+  "comments": "Great diagram!"
+}
+```
+
+**Response:**
+```json
+{
+  "message": "Feedback stored successfully",
+  "feedback_id": "a1b2c3d4-5678-90ef-ghij-klmnopqrstuv"
+}
+```
+
+#### 7. Export RL Training Data
+
+```bash
+GET /feedback/export?output_file=training_data.json
+```
+
+**Response:**
+```json
+{
+  "message": "Feedback exported successfully",
+  "output_file": "training_data.json",
+  "total_entries": 150
+}
+```
+
+#### 8. Health Check
 
 ```bash
 GET /health
 ```
 
-### Example cURL Request
+### Example cURL Requests
 
+**Generate Diagram:**
 ```bash
 curl -X POST "http://localhost:8000/generate/user_123" \
   -H "Content-Type: application/json" \
@@ -271,6 +383,60 @@ curl -X POST "http://localhost:8000/generate/user_123" \
     "diagram_types": ["class"]
   }'
 ```
+
+**Submit Feedback:**
+```bash
+curl -X POST "http://localhost:8000/feedback" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "session_id": "user_123",
+    "diagram_index": 0,
+    "feedback": "thumbs_up",
+    "comments": "Excellent diagram!"
+  }'
+```
+
+**Export Training Data:**
+```bash
+curl "http://localhost:8000/feedback/export?output_file=training_data.json"
+```
+
+### RL Training Data Structure
+
+The exported JSON file contains feedback entries with the following structure:
+
+```json
+[
+  {
+    "feedback_id": "uuid",
+    "session_id": "user_123",
+    "timestamp": "2025-10-01T12:00:00",
+    "prompt": "user's original prompt",
+    "diagram_type": "sequence",
+    "diagram_code": "@startuml\n...\n@enduml",
+    "image_path": "output_diagrams/...",
+    "feedback": "thumbs_up",
+    "reward": 1.0,
+    "comments": "optional comments",
+    "is_edit": false,
+    "stored_at": "2025-10-01T12:05:00"
+  }
+]
+```
+
+**Fields:**
+- `feedback_id`: Unique identifier for the feedback entry
+- `session_id`: User session identifier
+- `timestamp`: When the diagram was generated
+- `prompt`: User's input prompt
+- `diagram_type`: Type of diagram generated
+- `diagram_code`: The PlantUML code generated
+- `image_path`: Path to the generated image
+- `feedback`: "thumbs_up" or "thumbs_down"
+- `reward`: 1.0 for positive, -1.0 for negative
+- `comments`: Optional user comments
+- `is_edit`: True if this was an edit request
+- `stored_at`: When the feedback was stored
 
 ---
 
@@ -284,10 +450,12 @@ task/
 ├── uml_generator/            # Core UML generator package
 │   ├── uml_generator.py      # Main generator logic
 │   ├── session.py            # Redis session management
+│   ├── feedback_storage.py   # RL feedback storage
 │   └── models/               # Data models
 │       ├── diagram_type.py   # Diagram type enum
 │       ├── request_model.py  # Request models
-│       └── response_model.py # Response models
+│       ├── response_model.py # Response models
+│       └── feedback_model.py # Feedback models
 ├── nonsense/                 # Documentation & examples
 │   ├── example_usage.py      # Usage examples
 │   ├── QUICKSTART.md         # Quick start guide

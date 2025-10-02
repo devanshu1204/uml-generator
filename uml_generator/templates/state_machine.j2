@@ -1,0 +1,52 @@
+@startuml
+title {{ system.name }} - State Machine Diagram
+{% if system.description %}
+note top: {{ system.description }}
+{% endif %}
+
+{# Render all state machines #}
+{% for sm in stateMachines or state_machines -%}
+{% if sm.name -%}
+
+== {{ sm.name }} ==
+{% endif -%}
+
+{# Define states #}
+{% for state in sm.states %}
+{% if state.type == "initial" %}
+[*] --> {{ state.name }}
+{% elif state.type == "final" %}
+state {{ state.name }} <<end>>
+{% else %}
+state "{{ state.name }}" as {{ state.name }} {
+  {% if state.entry -%}
+  {{ state.name }}: entry / {{ state.entry }}
+  {% endif -%}
+  {% if state.doActivity or state.do_activity -%}
+  {{ state.name }}: do / {{ state.doActivity or state.do_activity }}
+  {% endif -%}
+  {% if state.exit -%}
+  {{ state.name }}: exit / {{ state.exit }}
+  {% endif -%}
+}
+{% endif %}
+{% endfor %}
+
+{# Define transitions #}
+{% for transition in sm.transitions %}
+{% set trans_from = transition.from_ or transition['from'] -%}
+{% set trans_to = transition.to -%}
+{% set trans_trigger = transition.trigger -%}
+{{ trans_from }} --> {{ trans_to }}: {{ trans_trigger }}{% if transition.guard %} [{{ transition.guard }}]{% endif %}{% if transition.action %} / {{ transition.action }}{% endif %}
+{% endfor %}
+
+{# Final state connections #}
+{% for state in sm.states %}
+{% if state.type == "final" %}
+{{ state.name }} --> [*]
+{% endif %}
+{% endfor %}
+
+{% endfor -%}
+
+@enduml

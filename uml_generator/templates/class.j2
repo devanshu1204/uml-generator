@@ -1,0 +1,40 @@
+@startuml
+!theme plain
+title {{ system.name }} - Class Diagram
+
+{% for entity in entities %}
+class "{{ entity.name }}" as {{ entity.id }} {
+  {%- if entity.stereotype %}
+  <<{{ entity.stereotype }}>>
+  {%- endif %}
+  {%- for attribute in entity.attributes %}
+  {%- set vis = '+' if attribute.visibility == 'public' else '-' if attribute.visibility == 'private' else '#' if attribute.visibility == 'protected' else '+' %}
+  {{ vis }}{{ attribute.name }}: {{ attribute.type }}{% if attribute.default %} = {{ attribute.default }}{% endif %}{% if attribute.isStatic %} {static}{% endif %}
+  {%- endfor %}
+  {%- if entity.attributes and entity.methods %}
+  --
+  {%- endif %}
+  {%- for method in entity.methods %}
+  {%- set vis = '+' if method.visibility == 'public' else '-' if method.visibility == 'private' else '#' if method.visibility == 'protected' else '+' %}
+  {{ vis }}{{ method.name }}({% for param in method.parameters %}{{ param.name }}: {{ param.type }}{% if not loop.last %}, {% endif %}{% endfor %}): {{ method.returnType }}{% if method.isStatic %} {static}{% endif %}{% if method.isAbstract %} {abstract}{% endif %}
+  {%- endfor %}
+}
+{% endfor %}
+
+{% for relationship in relationships %}
+{% if relationship.type == 'inheritance' %}
+{{ relationship.source }} --|> {{ relationship.target }}
+{% elif relationship.type == 'implementation' %}
+{{ relationship.source }} ..|> {{ relationship.target }}
+{% elif relationship.type == 'composition' %}
+{{ relationship.source }} "{{ relationship.sourceCardinality }}" *-- "{{ relationship.targetCardinality }}" {{ relationship.target }}{% if relationship.label %} : {{ relationship.label }}{% endif %}
+{% elif relationship.type == 'aggregation' %}
+{{ relationship.source }} "{{ relationship.sourceCardinality }}" o-- "{{ relationship.targetCardinality }}" {{ relationship.target }}{% if relationship.label %} : {{ relationship.label }}{% endif %}
+{% elif relationship.type == 'association' %}
+{{ relationship.source }} "{{ relationship.sourceCardinality }}" -- "{{ relationship.targetCardinality }}" {{ relationship.target }}{% if relationship.label %} : {{ relationship.label }}{% endif %}
+{% elif relationship.type == 'dependency' %}
+{{ relationship.source }} ..> {{ relationship.target }}{% if relationship.label %} : {{ relationship.label }}{% endif %}
+{% endif %}
+{% endfor %}
+
+@enduml

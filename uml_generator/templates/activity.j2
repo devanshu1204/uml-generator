@@ -1,0 +1,75 @@
+@startuml
+title {{ system.name }} - Activity Diagram
+{% if system.description %}
+note top: {{ system.description }}
+{% endif %}
+
+{# Render all activities #}
+{% for activity in activities -%}
+{% if activity.name -%}
+
+== {{ activity.name }} ==
+{% endif -%}
+
+{# Check if we have swimlanes #}
+{% set has_swimlanes = activity.nodes | selectattr('swimlane', 'defined') | list | length > 0 %}
+{% if has_swimlanes %}
+{# Get unique swimlanes #}
+{% set swimlanes = activity.nodes | map(attribute='swimlane') | select('defined') | unique | list %}
+{% for swimlane in swimlanes %}
+|{{ swimlane }}|
+{% for node in activity.nodes | selectattr('swimlane', 'equalto', swimlane) %}
+{% if node.type == "initial" %}
+start
+{% elif node.type == "final" %}
+stop
+{% elif node.type == "decision" %}
+:{{ node.name }};
+{% elif node.type == "fork" %}
+fork
+{% elif node.type == "join" %}
+fork again
+{% else %}
+:{{ node.name }};
+{% endif %}
+{% endfor %}
+{% endfor %}
+{% else %}
+{# No swimlanes - render nodes directly #}
+{% for node in activity.nodes %}
+{% if node.type == "initial" %}
+start
+{% elif node.type == "final" %}
+stop
+{% elif node.type == "decision" %}
+if ({{ node.name }}{% if node.condition %}: {{ node.condition }}{% endif %}) then (yes)
+{% elif node.type == "merge" %}
+endif
+{% elif node.type == "fork" %}
+fork
+{% elif node.type == "join" %}
+end fork
+{% else %}
+:{{ node.name }};
+{% endif %}
+{% endfor %}
+{% endif %}
+
+{# Activity flows #}
+{% for flow in activity.flows %}
+{% set flow_from = flow.from_ or flow['from'] -%}
+{% set flow_to = flow.to -%}
+{% if flow.label %}
+{% if flow.guard %}
+{{ flow_from }} -[#blue]> {{ flow_to }}: {{ flow.label }} [{{ flow.guard }}]
+{% else %}
+{{ flow_from }} --> {{ flow_to }}: {{ flow.label }}
+{% endif %}
+{% elif flow.guard %}
+{{ flow_from }} --> {{ flow_to }}: [{{ flow.guard }}]
+{% endif %}
+{% endfor %}
+
+{% endfor -%}
+
+@enduml

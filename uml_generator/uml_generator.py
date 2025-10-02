@@ -1,3 +1,17 @@
+"""
+⚠️ LEGACY GENERATOR - Consider using ModelBasedGenerator instead!
+
+This module provides the original UMLDiagramGenerator which makes one LLM call
+per diagram type. While still supported, the newer ModelBasedGenerator is recommended:
+
+- ModelBasedGenerator: ONE LLM call → Canonical Model → Many diagram views
+- UMLDiagramGenerator: ONE LLM call PER diagram type
+
+For new code, use:
+    from uml_generator.model_based_generator import ModelBasedGenerator
+
+See ARCHITECTURE.md for detailed comparison.
+"""
 from uml_generator.models.request_model import DiagramType, DiagramRequest
 from uml_generator.models.response_model import DiagramResponse
 from uml_generator.session import SessionMemory
@@ -184,6 +198,7 @@ class UMLDiagramGenerator:
             "completion_tokens": response.usage.completion_tokens,
             "total_tokens": response.usage.total_tokens
         }
+        print(f"Edits: {response.choices[0].message.content.strip()}")
         
         return response.choices[0].message.content.strip(), token_usage
     

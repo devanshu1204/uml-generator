@@ -1,0 +1,79 @@
+@startuml
+title {{ system.name }} - Component Diagram
+{% if system.description %}
+note top: {{ system.description }}
+{% endif %}
+
+{# Define components #}
+{% for component in components -%}
+{% if component.type == "package" -%}
+package "{{ component.name }}" as {{ component.id }} {
+}
+{% elif component.type == "subsystem" -%}
+component [{{ component.name }}] as {{ component.id }} << subsystem >>
+{% else -%}
+component [{{ component.name }}] as {{ component.id }}
+{% endif -%}
+{% if component.stereotype and component.type != "subsystem" -%}
+{{ component.id }} << {{ component.stereotype }} >>
+{% endif -%}
+{% endfor %}
+
+{# Define provided and required interfaces #}
+{% for component in components -%}
+{% for interface in component.providedInterfaces or component.provided_interfaces or [] -%}
+interface "{{ interface }}" as {{ component.id }}_{{ interface }}
+{{ component.id }} -( {{ component.id }}_{{ interface }}
+{% endfor -%}
+{% for interface in component.requiredInterfaces or component.required_interfaces or [] -%}
+interface "{{ interface }}" as {{ component.id }}_req_{{ interface }}
+{{ component.id }} ..> {{ component.id }}_req_{{ interface }}
+{% endfor -%}
+{% endfor %}
+
+{# Define actors that interact with components #}
+{% for actor in actors -%}
+actor "{{ actor.name }}" as {{ actor.id }}
+{% endfor %}
+
+{# Auto-define any components referenced in relationships but not defined above #}
+{% set defined_ids = [] -%}
+{% for component in components -%}
+{% set _ = defined_ids.append(component.id) -%}
+{% endfor -%}
+{% for actor in actors -%}
+{% set _ = defined_ids.append(actor.id) -%}
+{% endfor -%}
+{% set referenced_ids = [] -%}
+{% for rel in relationships -%}
+{% if rel.source not in referenced_ids -%}
+{% set _ = referenced_ids.append(rel.source) -%}
+{% endif -%}
+{% if rel.target not in referenced_ids -%}
+{% set _ = referenced_ids.append(rel.target) -%}
+{% endif -%}
+{% endfor -%}
+{% for ref_id in referenced_ids -%}
+{% if ref_id not in defined_ids -%}
+component [{{ ref_id }}]
+{% endif -%}
+{% endfor -%}
+
+{# Define relationships between components #}
+{% for rel in relationships -%}
+{% if rel.type == "dependency" -%}
+{{ rel.source }} ..> {{ rel.target }}{% if rel.label %}: {{ rel.label }}{% endif %}
+
+{% elif rel.type == "realization" -%}
+{{ rel.source }} ..|> {{ rel.target }}{% if rel.label %}: {{ rel.label }}{% endif %}
+
+{% elif rel.type == "composition" -%}
+{{ rel.source }} *-- {{ rel.target }}{% if rel.label %}: {{ rel.label }}{% endif %}
+
+{% elif rel.type == "association" -%}
+{{ rel.source }} -- {{ rel.target }}{% if rel.label %}: {{ rel.label }}{% endif %}
+
+{% endif -%}
+{% endfor -%}
+
+@enduml

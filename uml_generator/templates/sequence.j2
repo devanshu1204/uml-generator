@@ -1,0 +1,89 @@
+@startuml
+title {{ system.name }} - Sequence Diagram
+{% if system.description %}
+note top: {{ system.description }}
+{% endif %}
+
+{# Get all participants from interactions #}
+{% set all_participants = [] -%}
+{% for interaction in interactions -%}
+{% for participant_id in interaction.participants -%}
+{% if participant_id not in all_participants -%}
+{% set _ = all_participants.append(participant_id) -%}
+{% endif -%}
+{% endfor -%}
+{% endfor -%}
+
+{# Define actors and participants #}
+{% for participant_id in all_participants -%}
+{% set actor = get_actor_by_id(participant_id) -%}
+{% set entity = get_entity_by_id(participant_id) -%}
+{% set component = get_component_by_id(participant_id) -%}
+
+{% if actor -%}
+{% if actor.type == "human" -%}
+actor "{{ actor.name }}" as {{ actor.id }}
+{% else -%}
+participant "{{ actor.name }}" as {{ actor.id }}
+{% endif -%}
+{% elif entity -%}
+participant "{{ entity.name }}" as {{ entity.id }}
+{% elif component -%}
+participant "{{ component.name }}" as {{ component.id }}
+{% else -%}
+participant {{ participant_id }}
+{% endif -%}
+{% endfor %}
+
+{# Render messages from all interactions #}
+{% for interaction in interactions -%}
+{% if interaction.name -%}
+
+== {{ interaction.name }} ==
+{% endif -%}
+
+{% set prev_condition = none -%}
+{% for message in interaction.messages | sort(attribute='order') -%}
+
+{# Close previous condition if it changed #}
+{% if prev_condition and message.condition != prev_condition -%}
+end
+{% set prev_condition = none -%}
+{% endif -%}
+
+{# Open new condition if needed #}
+{% if message.condition and message.condition != prev_condition -%}
+alt {{ message.condition }}
+{% set prev_condition = message.condition -%}
+{% endif -%}
+
+{# Render the message #}
+{% set msg_from = message.from_ or message['from'] -%}
+{% set msg_to = message.to -%}
+{% set msg_type = message.messageType or message.message_type -%}
+
+{% if msg_type == "sync" -%}
+{{ msg_from }} -> {{ msg_to }}: {{ message.message }}
+{% elif msg_type == "async" -%}
+{{ msg_from }} ->> {{ msg_to }}: {{ message.message }}
+{% elif msg_type == "return" -%}
+{{ msg_from }} --> {{ msg_to }}: {{ message.message }}
+{% elif msg_type == "create" -%}
+{{ msg_from }} -> {{ msg_to }} **: {{ message.message }}
+{% elif msg_type == "destroy" -%}
+{{ msg_from }} -> {{ msg_to }}: {{ message.message }}
+destroy {{ msg_to }}
+{% endif -%}
+
+{% if message.returnMessage or message.return_message -%}
+{{ msg_to }} --> {{ msg_from }}: {{ message.returnMessage or message.return_message }}
+{% endif -%}
+{% endfor -%}
+
+{# Close any remaining condition #}
+{% if prev_condition -%}
+end
+{% endif -%}
+{% endfor -%}
+
+@enduml

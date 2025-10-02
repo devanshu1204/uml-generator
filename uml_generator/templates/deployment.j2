@@ -1,0 +1,42 @@
+@startuml
+title {{ system.name }} - Deployment Diagram
+{% if system.description %}
+note top: {{ system.description }}
+{% endif %}
+
+{# Define deployment nodes #}
+{% for node in deploymentNodes or deployment_nodes %}
+{% if node.type == "device" %}
+node "{{ node.name }}" as {{ node.id }}
+{% elif node.type == "executionEnvironment" or node.type == "execution_environment" %}
+node "{{ node.name }}" as {{ node.id }} <<execution environment>>
+{% else %}
+node "{{ node.name }}" as {{ node.id }}
+{% endif %}
+
+{% if node.stereotype %}
+{{ node.id }} << {{ node.stereotype }} >>
+{% endif %}
+
+{# Artifacts on this node #}
+{% for artifact in node.artifacts %}
+artifact "{{ artifact }}" as {{ node.id }}_{{ loop.index }}
+{{ node.id }} -- {{ node.id }}_{{ loop.index }}
+{% endfor %}
+
+{# Nested nodes #}
+{% for nested_id in node.nestedNodes or node.nested_nodes or [] %}
+{{ node.id }} *-- {{ nested_id }}
+{% endfor %}
+{% endfor %}
+
+{# Connections between nodes if available #}
+{% for rel in relationships %}
+{% if rel.type == "dependency" %}
+{{ rel.source }} ..> {{ rel.target }}{% if rel.label %}: {{ rel.label }}{% endif %}
+{% elif rel.type == "association" %}
+{{ rel.source }} -- {{ rel.target }}{% if rel.label %}: {{ rel.label }}{% endif %}
+{% endif %}
+{% endfor %}
+
+@enduml

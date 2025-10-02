@@ -1,0 +1,40 @@
+@startuml
+title {{ system.name }} - Use Case Diagram
+{% if system.description %}
+note top: {{ system.description }}
+{% endif %}
+
+{# Define actors #}
+{% for actor in actors -%}
+actor "{{ actor.name }}" as {{ actor.id }}
+{% endfor %}
+
+{# System boundary #}
+rectangle "{{ system.name }}" {
+  {# Define use cases #}
+  {% for uc in useCases or use_cases -%}
+  usecase "{{ uc.name }}" as {{ uc.id }}
+  {% if uc.description -%}
+  note right of {{ uc.id }}: {{ uc.description }}
+  {% endif -%}
+  {% endfor %}
+  
+  {# Use case relationships (extends, includes) #}
+  {% for uc in useCases or use_cases -%}
+    {% for ext_id in uc.extends -%}
+  {{ uc.id }} .> {{ ext_id }}: <<extends>>
+    {% endfor -%}
+    {% for inc_id in uc.includes -%}
+  {{ uc.id }} .> {{ inc_id }}: <<includes>>
+    {% endfor -%}
+  {% endfor -%}
+}
+
+{# Actor-Use Case associations #}
+{% for uc in useCases or use_cases -%}
+  {% for actor_id in uc.actors -%}
+{{ actor_id }} --> {{ uc.id }}
+  {% endfor -%}
+{% endfor -%}
+
+@enduml
